@@ -3,4 +3,6 @@
 /jsons
 /dist
 /temp
-/data/templates/po_template_0.xlsx
+/data/templates/po_template.xlsx
+/config/user_settings.json
+__pycache__
