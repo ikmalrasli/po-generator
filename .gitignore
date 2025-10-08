@@ -1,0 +1,6 @@
+.env
+/build
+/jsons
+/dist
+/temp
+/data/templates/po_template_0.xlsx
