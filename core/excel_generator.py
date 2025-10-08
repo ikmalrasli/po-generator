@@ -34,7 +34,7 @@ class ExcelGenerator:
             total_cost = self._populate_items_table(sheet, po_data)
             
             # Add totals and formatting
-            self._add_totals_and_formatting(sheet, total_cost, gui_data)
+            self._add_totals_and_formatting(sheet, total_cost, po_data)
             
             # Save to temporary file
             workbook.save(self.temp_filepath)
@@ -99,8 +99,8 @@ class ExcelGenerator:
         # Populate items data
         for index, item in enumerate(items_list):
             current_row = start_row + index * 2
-            quantity = item.get('quantity', 0)
-            unit_price = item.get('unitPrice', 0)
+            quantity = item.get('quantity') or 0
+            unit_price = item.get('unitPrice') or 0
             line_total = quantity * unit_price
             total_cost_calculated += line_total
 
@@ -142,13 +142,17 @@ class ExcelGenerator:
             self._copy_row_style(sheet, table_end_row - 1, new_blank_row_num)
             self._copy_row_style(sheet, table_end_row, new_item_row_num)
 
-    def _add_totals_and_formatting(self, sheet, total_cost, gui_data):
+    def _add_totals_and_formatting(self, sheet, total_cost, po_data):
         """Add totals, formatting, and signatures"""
-        items_list = []
+        items_list = po_data.get('items', [])
         num_items = len(items_list)
+        print(f"Number of items: {num_items}")
+        print(f"Avaliable item slots: {(EXCEL_TABLE_END_ROW - EXCEL_START_ROW + 1) // ROWS_PER_ITEM}")
         if num_items > ((EXCEL_TABLE_END_ROW - EXCEL_START_ROW + 1) // ROWS_PER_ITEM):
+            print("Expanding table for totals and formatting...")
             final_table_row = EXCEL_START_ROW + (num_items * ROWS_PER_ITEM) - 1
         else:
+            print("Using existing table for totals and formatting...")
             final_table_row = EXCEL_TABLE_END_ROW
         
         # Add total cost
@@ -161,6 +165,7 @@ class ExcelGenerator:
         
         # Add signatures
         name_rows = final_table_row + 10
+        gui_data = po_data.get('gui_data', {})
         sheet[f'G{name_rows}'] = gui_data.get('purchaser_name', '')
         sheet[f'H{name_rows}'] = gui_data.get('director_manager', '')
 

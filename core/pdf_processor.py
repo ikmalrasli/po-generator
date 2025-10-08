@@ -10,8 +10,10 @@ from config.settings import GEMINI_MODEL, GEMINI_TEMPERATURE, GEMINI_TOP_P, JSON
 
 class PDFProcessor:
     def __init__(self):
-        load_dotenv()
-        self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+        # load_dotenv()
+        # self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+        GOOGLE_API_KEY='AIzaSyCHW_3J_Fh9CcjBc58cQ54AMmfjqcVgXIc'
+        self.client = genai.Client(api_key=GOOGLE_API_KEY)
         self.model = GEMINI_MODEL
 
     def extract_po_data(self, filepath, gui_data):

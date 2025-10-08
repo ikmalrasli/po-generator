@@ -2,6 +2,10 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
 import pathlib
+import subprocess
+import sys
+import time
+import threading
 from datetime import datetime
 
 from gui.components import GUIComponents
@@ -14,7 +18,7 @@ class POGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Purchase Order Generator")
-        self.root.geometry("600x500")
+        self.root.geometry("600x550")
         
         # Initialize processors
         self.pdf_processor = PDFProcessor()
@@ -29,6 +33,13 @@ class POGUI:
         self.director_manager = tk.StringVar()
         self.quotation_file = tk.StringVar()
         self.remember_details = tk.BooleanVar(value=False)
+        
+        # Track saved file path
+        self.saved_filepath = None
+        
+        # Track generation start time and state
+        self.generation_start_time = None
+        self.is_generating = False
         
         # Track if we're currently loading settings (to avoid auto-save during load)
         self.is_loading_settings = False
@@ -66,10 +77,8 @@ class POGUI:
                 self.status_label.config(text="Auto-save enabled - details will be remembered", foreground="green")
         else:
             # Checkbox unchecked - save current settings with remember_details=False
-            # This ensures the setting is persisted as false
             if self.save_current_settings(silent=True):
                 self.status_label.config(text="Auto-save disabled - details will not be remembered", foreground="orange")
-            # Clear the status message after a delay
             self.root.after(3000, lambda: self.status_label.config(text=""))
         
     def load_saved_settings(self):
@@ -85,9 +94,7 @@ class POGUI:
             self.director_manager.set(self.user_settings.get('director_manager', ''))
             self.remember_details.set(True)
         else:
-            # Ensure the checkbox reflects the false state from settings
             self.remember_details.set(False)
-            self.save_current_settings(silent=True)
             
         self.is_loading_settings = False
         
@@ -100,7 +107,7 @@ class POGUI:
             'phone_code': self.phone_code.get(),
             'phone_number_only': self.phone_number_only.get(),
             'director_manager': self.director_manager.get(),
-            'remember_details': self.remember_details.get()  # This will be false when unchecked
+            'remember_details': self.remember_details.get()
         }
         
         if save_user_settings(settings):
@@ -187,8 +194,13 @@ class POGUI:
         button_frame.grid(row=row_counter, column=0, columnspan=3, pady=20)
         row_counter += 1
         
-        ttk.Button(button_frame, text="Generate Purchase Order", 
-                  command=self.generate_po).pack(side=tk.LEFT, padx=5)
+        self.generate_button = ttk.Button(
+            button_frame, 
+            text="Generate Purchase Order", 
+            command=self.generate_po
+        )
+        self.generate_button.pack(side=tk.LEFT, padx=5)
+        
         ttk.Button(button_frame, text="Clear Form", 
                   command=self.clear_form).pack(side=tk.LEFT, padx=5)
         
@@ -206,6 +218,68 @@ class POGUI:
         )
         self.save_as_button.grid(row=row_counter, column=0, columnspan=3, pady=5)
         self.save_as_button.grid_remove()
+        row_counter += 1
+        
+        # Open File button
+        self.open_file_button = ttk.Button(
+            main_frame,
+            text="Open File",
+            command=self.open_saved_file,
+            state="disabled"
+        )
+        self.open_file_button.grid(row=row_counter, column=0, columnspan=3, pady=5)
+        self.open_file_button.grid_remove()
+        
+    def update_elapsed_time(self):
+        """Update the elapsed time in the status label"""
+        if self.is_generating and self.generation_start_time:
+            elapsed_time = time.time() - self.generation_start_time
+            minutes = int(elapsed_time // 60)
+            seconds = int(elapsed_time % 60)
+            
+            if minutes > 0:
+                time_text = f"{minutes}m {seconds}s"
+            else:
+                time_text = f"{seconds}s"
+                
+            self.status_label.config(
+                text=f"Generating Purchase Order... (Elapsed: {time_text})", 
+                foreground="blue"
+            )
+            
+            # Schedule next update if still generating
+            if self.is_generating:
+                self.root.after(1000, self.update_elapsed_time)
+        
+    def open_saved_file(self):
+        """Open the saved file with the default application"""
+        if self.saved_filepath and os.path.exists(self.saved_filepath):
+            try:
+                if sys.platform == "win32":
+                    os.startfile(self.saved_filepath)
+                elif sys.platform == "darwin":
+                    subprocess.run(["open", self.saved_filepath])
+                else:
+                    subprocess.run(["xdg-open", self.saved_filepath])
+                
+                self.status_label.config(text="Opening file...", foreground="blue")
+            except Exception as e:
+                self.status_label.config(text=f"Error opening file: {str(e)}", foreground="red")
+                messagebox.showerror("Error", f"Could not open the file:\n{str(e)}")
+        else:
+            self.status_label.config(text="No saved file found", foreground="red")
+            messagebox.showerror("Error", "No saved file found or file has been moved.")
+            
+    def hide_open_file_button(self):
+        """Hide the Open File button"""
+        self.open_file_button.grid_remove()
+        self.open_file_button.config(state="disabled")
+        self.saved_filepath = None
+        
+    def show_open_file_button(self):
+        """Show the Open File button"""
+        self.open_file_button.grid()
+        self.open_file_button.config(state="normal")
         
     def browse_file(self):
         filename = filedialog.askopenfilename(
@@ -227,14 +301,14 @@ class POGUI:
         self.phone_number_only.set("")
         self.director_manager.set("")
         self.quotation_file.set("")
-        self.remember_details.set(remember_setting)  # Keep the remember setting
+        self.remember_details.set(remember_setting)
         
-        # Auto-save if remember is enabled
         if remember_setting:
             self.save_current_settings(silent=True)
             
         self.status_label.config(text="Form cleared")
         self.hide_save_button()
+        self.hide_open_file_button()
         
     def hide_save_button(self):
         self.save_as_button.grid_remove()
@@ -297,28 +371,105 @@ class POGUI:
                 import shutil
                 shutil.copy2(self.excel_generator.temp_filepath, filepath)
                 
+                self.saved_filepath = filepath
+                short_path = self._shorten_file_path(filepath)
                 self.status_label.config(
-                    text=f"Purchase Order saved successfully!\nLocation: {filepath}", 
+                    text=f"Purchase Order saved successfully!\nLocation: {short_path}", 
                     foreground="green"
                 )
-                messagebox.showinfo("Success", f"Purchase Order saved successfully!\n\nLocation: {filepath}")
                 
+                self.show_open_file_button()
                 self.excel_generator.cleanup_temp_file()
                 self.hide_save_button()
                 
+                messagebox.showinfo("Success", f"Purchase Order saved successfully!\n\nLocation: {filepath}")
+                
             except Exception as e:
                 messagebox.showerror("Save Error", f"Could not save file: {str(e)}")
+                self.hide_open_file_button()
         else:
             self.status_label.config(text="Save cancelled - file ready for download", foreground="orange")
+            self.hide_open_file_button()
+
+    def _shorten_file_path(self, filepath, max_length=60):
+        """Shorten file path for display in status label"""
+        if len(filepath) <= max_length:
+            return filepath
+        
+        path = Path(filepath)
+        filename = path.name
+        parent = path.parent.name
+        
+        shortened = f".../{parent}/{filename}"
+        
+        if len(shortened) > max_length:
+            shortened = f".../{filename}"
+            
+        return shortened
+
+    def _generate_po_thread(self, gui_data):
+        """Run the PO generation in a separate thread"""
+        try:
+            # Process PDF and generate Excel
+            filepath = pathlib.Path(gui_data['quotation_file'])
+            extracted_data = self.pdf_processor.extract_po_data(filepath, gui_data)
+            self.excel_generator.generate_po_excel(extracted_data)
+            
+            # Stop timing and calculate final elapsed time
+            elapsed_time = time.time() - self.generation_start_time
+            self.is_generating = False
+            
+            minutes = int(elapsed_time // 60)
+            seconds = int(elapsed_time % 60)
+            
+            if minutes > 0:
+                time_text = f"{minutes}m {seconds}s"
+            else:
+                time_text = f"{seconds}s"
+            
+            # Update UI in main thread
+            self.root.after(0, lambda: self._on_generation_success(time_text))
+            
+        except Exception as e:
+            self.is_generating = False
+            # Update UI in main thread
+            self.root.after(0, lambda: self._on_generation_error(str(e)))
+    
+    def _on_generation_success(self, time_text):
+        """Handle successful generation in main thread"""
+        self.generate_button.config(state="normal")
+        self.status_label.config(
+            text=f"Purchase Order generated successfully! (Time: {time_text})", 
+            foreground="green"
+        )
+        self.show_save_button()
+    
+    def _on_generation_error(self, error_message):
+        """Handle generation error in main thread"""
+        self.generate_button.config(state="normal")
+        self.status_label.config(text="Error generating PO", foreground="red")
+        messagebox.showerror("Error", f"An error occurred while generating the PO:\n{error_message}")
 
     def generate_po(self):
         if not self.validate_inputs():
             return
             
         try:
-            self.status_label.config(text="Generating Purchase Order...", foreground="blue")
+            # Disable generate button to prevent multiple clicks
+            self.generate_button.config(state="disabled")
+            
+            # Start timing and set generation state
+            self.generation_start_time = time.time()
+            self.is_generating = True
+            
+            # Update status with initial elapsed time
+            self.status_label.config(text="Generating Purchase Order... (Elapsed: 0s)", foreground="blue")
             self.hide_save_button()
+            self.hide_open_file_button()
             self.root.update()
+            
+            # Start the elapsed time updater
+            self.update_elapsed_time()
             
             # Prepare GUI data
             gui_data = {
@@ -332,15 +483,13 @@ class POGUI:
                 'quotation_file': self.quotation_file.get()
             }
             
-            # Process PDF and generate Excel
-            filepath = pathlib.Path(gui_data['quotation_file'])
-            extracted_data = self.pdf_processor.extract_po_data(filepath, gui_data)
-            self.excel_generator.generate_po_excel(extracted_data)
-            
-            # Show success and save button
-            self.status_label.config(text="Purchase Order generated successfully!", foreground="green")
-            self.show_save_button()
+            # Start generation in a separate thread
+            generation_thread = threading.Thread(target=self._generate_po_thread, args=(gui_data,))
+            generation_thread.daemon = True
+            generation_thread.start()
 
         except Exception as e:
+            self.is_generating = False
+            self.generate_button.config(state="normal")
             self.status_label.config(text="Error generating PO", foreground="red")
             messagebox.showerror("Error", f"An error occurred while generating the PO:\n{str(e)}")
