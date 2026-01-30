@@ -84,6 +84,19 @@ class GUIComponents:
         return file_frame, entry
 
     @staticmethod
+    def create_api_key_input(parent, label_text, variable, row):
+        """Create API key input with show/hide functionality"""
+        ttk.Label(parent, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5)
+        
+        api_frame = ttk.Frame(parent)
+        api_frame.grid(row=row, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        
+        entry = ttk.Entry(api_frame, textvariable=variable, width=30, show="*")
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        return api_frame, entry
+
+    @staticmethod
     def create_checkbox(parent, text, variable, row, columnspan=3):
         """Create a checkbox"""
         checkbox = ttk.Checkbutton(parent, text=text, variable=variable)

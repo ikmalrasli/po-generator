@@ -1,20 +1,41 @@
 import json
 import os
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-import pathlib
+import sys
+from pathlib import Path
 from datetime import datetime
 
 from config.settings import GEMINI_MODEL, GEMINI_TEMPERATURE, GEMINI_TOP_P, JSONS_DIR
 
 class PDFProcessor:
-    def __init__(self):
-        load_dotenv()
-        self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-        self.model = GEMINI_MODEL
+    def __init__(self, api_key=None):
+        self._client = None
+        self._model = None
+        self._api_key = api_key
+    
+    @property
+    def client(self):
+        if self._client is None:
+            self._load_google_client()
+        return self._client
+    
+    @property
+    def model(self):
+        if self._model is None:
+            self._model = GEMINI_MODEL
+        return self._model
+    
+    def _load_google_client(self):
+        """Lazy load Google client only when needed"""
+        from google import genai
+        
+        if not self._api_key:
+            raise ValueError("Google API key is not set. Please set your API key in the settings.")
+        
+        self._client = genai.Client(api_key=self._api_key)
 
     def extract_po_data(self, filepath, gui_data):
+        from google.genai import types
+        
         print("Sending request to Gemini...")
 
         prompt = """
@@ -37,7 +58,7 @@ class PDFProcessor:
         "items": [
             {
             "quantity": "The numerical quantity of the item.",
-            "unit": "The unit of measure (e.g., 'pcs', 'kgs', 'lot').",
+            "unit": "The unit of measure (e.g., 'pcs', 'kgs', 'lot').,
             "description": "The full description of the item.",
             "unitPrice": "The price per unit as a number."
             }

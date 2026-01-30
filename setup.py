@@ -1,5 +1,4 @@
 from setuptools import setup, find_packages
-import sys
 
 setup(
     name="purchase-order-generator",
@@ -10,7 +9,6 @@ setup(
     install_requires=[
         "openpyxl>=3.1.0",
         "google-genai>=0.3.0", 
-        "python-dotenv>=1.0.0",
         "num2words>=0.5.10",
         "tkcalendar>=1.6.1",
     ],

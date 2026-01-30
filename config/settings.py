@@ -32,7 +32,8 @@ DEFAULT_USER_SETTINGS = {
     "phone_code": "+60",
     "phone_number_only": "",
     "director_manager": "",
-    "remember_details": False
+    "remember_details": False,
+    "google_api_key": ""
 }
 
 # Create necessary directories
