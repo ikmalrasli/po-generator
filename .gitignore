@@ -6,3 +6,4 @@
 /data/templates/po_template.xlsx
 /config/user_settings.json
 __pycache__
+config/user_settings.json

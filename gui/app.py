@@ -547,7 +547,7 @@ class POGUI:
                 self.excel_generator.cleanup_temp_file()
                 self.hide_save_button()
                 
-                messagebox.showinfo("Success", f"Purchase Order saved successfully!\n\nLocation: {filepath}")
+                # No messagebox here - the custom success dialog already handled notification
                 
             except Exception as e:
                 messagebox.showerror("Save Error", f"Could not save file: {str(e)}")
