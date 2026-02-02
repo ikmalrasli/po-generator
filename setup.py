@@ -11,6 +11,7 @@ setup(
         "google-genai>=0.3.0", 
         "num2words>=0.5.10",
         "tkcalendar>=1.6.1",
+        "pillow>=10.0.0",
     ],
     python_requires=">=3.8",
     entry_points={

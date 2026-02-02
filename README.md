@@ -4,11 +4,17 @@ A Python-based desktop application that automates the creation of purchase order
 
 ## 🚀 Features
 
-- **AI-Powered PDF Processing**: Automatically extracts company details, items, and terms from quotation PDFs using Google Gemini AI
-- **Excel Template Generation**: Creates professionally formatted purchase orders based on customizable templates
-- **User-Friendly GUI**: Simple interface built with Tkinter for easy data entry and file management
-- **Auto-Save Preferences**: Remember frequently used details with the auto-save feature
-- **Export Flexibility**: Save generated POs to any location with custom filenames
+- **Universal AI Scanning**: Transform ANY supplier quotation PDF into a professional purchase order using advanced AI - works with quotations from any company, any format
+- **Modern Grouped Interface**: Clean, organized layout with labeled sections for Project Information, Personnel Information, and Attachments
+- **Real-time API Status**: Visual indicator showing API connection status (green/red dot) in the header
+- **Smart Form Validation**: Automatic PO number format validation with helpful error messages
+- **Interactive Date Picker**: Calendar widget with "Today" button for quick date selection
+- **International Phone Support**: Country code dropdown with phone number input
+- **API Key Management**: Built-in settings dialog with connection testing and clipboard paste functionality
+- **Progress Tracking**: Real-time generation progress with elapsed time display
+- **Auto-Save Preferences**: Optional form data persistence with checkbox control
+- **Smart File Handling**: Browse dialog for PDF selection with intelligent file naming
+- **Custom Success Dialog**: Post-generation options to save, open, or continue working
 
 ## 📋 Prerequisites
 
@@ -20,8 +26,8 @@ A Python-based desktop application that automates the creation of purchase order
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/purchase-order-generator.git
-   cd purchase-order-generator
+   git clone https://github.com/ikmalrasli/po-generator.git
+   cd po-generator
    ```
 
 2. **Install required packages**
@@ -29,16 +35,21 @@ A Python-based desktop application that automates the creation of purchase order
    pip install -r requirements.txt
    ```
 
-3. **Set up environment variables**
-   - Create a `.env` file in the root directory
-   - Add your Google Gemini API key:
-     ```
-     GOOGLE_API_KEY=your_api_key_here
-     ```
+3. **Set up Google API Key**
+   - Launch the application with `python main.py`
+   - Click the "⚙ Settings" button in the top-right corner
+   - Enter your Google Gemini API key or click "Get one here" to obtain one
+   - Use "Test Connection" to verify your key works
+   - Click "OK" to save
 
 4. **Set up Excel template**
-   - ⚠️ **Important**: The provided `po_template.xlsx` in the `data/templates/` folder is a **SAMPLE TEMPLATE**
-   - Replace it with your own company's purchase order template
+   - ⚠️ **Important**: The provided `po_template_sample.xlsx` in the `templates/` folder is a **SAMPLE TEMPLATE**
+   - **Customize the sample template**:
+     - Update company name, address, and contact information
+     - Add your company logo and branding
+     - Modify header/footer to match your company's PO format
+     - Adjust styling, colors, and fonts as needed
+   - **Rename and activate**: After customization, rename `po_template_sample.xlsx` to `po_template.xlsx`
    - Ensure your template maintains the same cell structure and formatting used by the application
 
 ## 🎯 Usage
@@ -49,27 +60,59 @@ A Python-based desktop application that automates the creation of purchase order
 python main.py
 ```
 
-### Basic Workflow
+### Complete User Workflow
 
-1. **Fill in PO Details**:
-   - PO Number (format: P-######-###M)
-   - Project Name
-   - Purchaser Information
-   - Manager Details
+1. **API Setup (First Time Only)**:
+   - Look at the API status indicator in the header (red dot = "API Key Missing")
+   - Click "⚙ Settings" button to open the API key dialog
+   - Paste your Google Gemini API key or click the link to get one
+   - Test the connection to verify it works
+   - Save the key - the status indicator will turn green ("API Active")
 
-2. **Select Quotation PDF**:
-   - Browse and select the supplier's quotation PDF
-   - The AI will automatically extract relevant information
+2. **Fill in Project Information**:
+   - **PO Number**: Enter in format P-######-###M (e.g., P-250719-001M)
+   - **Project Name**: Enter the project name
+   - **PO Issue Date**: Use the date picker or click "Today" for current date
 
-3. **Generate & Save**:
-   - Click "Generate Purchase Order"
-   - Use "Save As..." to choose the save location and filename
+3. **Fill in Personnel Information**:
+   - **Purchaser Name**: Enter the purchaser's full name
+   - **Purchaser Telephone**: Select country code (+60 default) and enter phone number
+   - **Manager Name**: Enter the approving manager's name
 
-### Auto-Save Feature
+4. **Attach Quotation PDF**:
+   - Click "Browse" to select ANY supplier's quotation PDF (from any company, any format)
+   - The AI will automatically scan and extract all relevant information
+   - The file path will appear in the text field
+   - The "Generate Purchase Order" button will become enabled when both API key and PDF are set
 
-- Check "Remember details for next time" to automatically save your inputs
-- When enabled, your details will be pre-filled on next startup
-- Changes are saved automatically as you type
+5. **Configure Auto-Save (Optional)**:
+   - Check "Remember details for next time (auto-save)" to save your form data
+   - When enabled, your information will be automatically restored on next launch
+   - Changes are saved in real-time as you type
+
+6. **Generate Purchase Order**:
+   - Click "Generate Purchase Order" (button shows "Generating..." during processing)
+   - Window title displays elapsed time during generation
+   - Progress is shown with real-time timer
+
+7. **Handle Generated File**:
+   - **Success Dialog** appears with generation time
+   - Choose "Save As..." to save the file with custom name/location
+   - Click "Open File" to view the generated Excel immediately
+   - Or click "OK" to keep the file in temp folder
+
+8. **Additional Actions**:
+   - **Clear Form**: Resets all fields while preserving auto-save setting
+   - **Save As...**: Save the generated PO to your preferred location
+   - **Open File**: Open the most recently saved file
+
+### Interface Elements
+
+- **Header**: Shows app title and real-time API status with settings access
+- **Grouped Sections**: Organized input fields in logical categories
+- **Smart Buttons**: Context-aware button states (disabled/enabled based on requirements)
+- **Validation**: Real-time input validation with helpful error messages
+- **Progress Feedback**: Visual feedback during processing with timing information
 
 ## 📁 Project Structure
 
@@ -84,11 +127,11 @@ purchase-order-generator/
 │   ├── pdf_processor.py    # AI-powered PDF processing
 │   └── utils.py           # Helper functions and validations
 ├── gui/
-│   ├── app.py             # Main GUI application
+│   ├── app.py             # Main GUI application with dialogs
 │   └── components.py      # Reusable UI components
-├── data/
-│   └── templates/
-│       └── po_template.xlsx  # ⚠️ SAMPLE TEMPLATE - REPLACE WITH YOUR OWN
+├── templates/
+│   ├── po_template_sample.xlsx  # ⚠️ SAMPLE TEMPLATE - CUSTOMIZE AND RENAME
+│   └── po_template.xlsx  # Your active template (rename from sample)
 ├── temp/                  # Temporary files (auto-created)
 ├── jsons/                 # Extracted JSON data (auto-created)
 └── requirements.txt       # Python dependencies
@@ -98,17 +141,20 @@ purchase-order-generator/
 
 ### Template Customization
 
-⚠️ **The provided template is a sample** - you MUST replace it with your company's actual purchase order template:
+⚠️ **The provided template is a sample** - you MUST customize it with your company's branding:
 
-1. **Replace the Sample Template**:
-   - Copy your company's Excel purchase order template to `data/templates/po_template.xlsx`
-   - Ensure it maintains the same cell references used in the code
+1. **Customize the Sample Template**:
+   - Open `templates/po_template_sample.xlsx`
+   - **Company Branding**: Add your company logo, update name, address, contact info
+   - **Visual Design**: Adjust colors, fonts, styling to match your company's PO format
+   - **Header/Footer**: Modify to include your company's standard PO layout
+   - **Save**: After customization, **rename** `po_template_sample.xlsx` to `po_template.xlsx`
 
-2. **Key Template Requirements**:
+2. **Key Template Requirements** (maintain these cell references):
    - Header fields in specific cells (B9, B10, B11, etc.)
    - Item table starting at row 31
-   - Total calculation formulas
-   - Signature fields
+   - Total calculation formulas in column I
+   - Signature fields for approvals
 
 ### Field Mapping
 
@@ -128,31 +174,41 @@ To create a standalone executable:
 # Using the provided build script
 python build.py
 
-# Or using PyInstaller directly
-pyinstaller build.spec
+# Create installer (after executable is built)
+python build_installer.py
 ```
 
-The executable will be created in the `dist/` folder.
+The executable will be created in the `dist/` folder, and the installer in the root directory.
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **API Key Error**:
-   - Ensure `.env` file exists with valid `GOOGLE_API_KEY`
-   - Check internet connection for API calls
+1. **API Key Issues**:
+   - Check the API status indicator in the header
+   - Use "Test Connection" in the API settings dialog
+   - Ensure internet connection for API calls
+   - Verify key validity at https://aistudio.google.com/api-keys
 
-2. **Template Not Found**:
-   - Verify `po_template.xlsx` exists in `data/templates/`
-   - Remember: Replace the sample template with your own
+2. **Form Validation Errors**:
+   - PO Number must follow format: P-######-###M
+   - All required fields must be filled before generation
+   - Quotation PDF must exist and be accessible
 
 3. **PDF Processing Fails**:
    - Ensure PDF is not password protected
    - Check that PDF contains readable text (not scanned images)
+   - Verify file size is reasonable (< 10MB recommended)
 
 4. **Excel Generation Errors**:
    - Verify your custom template maintains required cell structure
    - Check that Excel is not open when generating files
+   - Ensure write permissions in the target directory
+
+5. **Build Issues**:
+   - Run `python build.py` first before `python build_installer.py`
+   - Ensure NSIS is installed for installer creation
+   - Check that all dependencies are in requirements.txt
 
 ## 📝 License
 
@@ -179,4 +235,5 @@ If you encounter any issues or have questions:
 - **Template Requirement**: The success of this application depends on using your company's proper Excel template. The provided sample is for reference only.
 - **API Costs**: Google Gemini API usage may incur costs. Monitor your API usage.
 - **Data Privacy**: PDFs are sent to Google's servers for processing. Ensure compliance with your organization's data policies.
+- **Auto-Save**: User preferences are stored locally and persist between application launches.
 - **Backup**: Always keep backups of your custom template and generated files.
