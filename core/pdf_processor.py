@@ -90,7 +90,7 @@ class PDFProcessor:
             extracted_data['gui_data'] = gui_data
             
             # Save extracted JSON for reference
-            self._save_extracted_json(extracted_data)
+            # self._save_extracted_json(extracted_data)
             
             return extracted_data
 

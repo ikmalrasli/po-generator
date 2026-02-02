@@ -2,12 +2,15 @@ import os
 import json
 from pathlib import Path
 
-# Base paths
+# Base paths - Program directory (read-only templates)
 BASE_DIR = Path(__file__).parent.parent
-TEMP_DIR = BASE_DIR / "temp"
-JSONS_DIR = BASE_DIR / "jsons"
-TEMPLATE_DIR = BASE_DIR / "data" / "templates"
-CONFIG_DIR = BASE_DIR / "config"
+TEMPLATE_DIR = BASE_DIR / "templates"
+
+# User data paths - AppData (writable user data)
+APP_DATA_DIR = Path(os.environ.get('APPDATA', '')) / 'PO-Generator'
+TEMP_DIR = APP_DATA_DIR / "temp"
+JSONS_DIR = APP_DATA_DIR / "jsons"
+CONFIG_DIR = APP_DATA_DIR / "config"
 
 # File paths
 TEMPLATE_PATH = TEMPLATE_DIR / "po_template.xlsx"
@@ -36,8 +39,8 @@ DEFAULT_USER_SETTINGS = {
     "google_api_key": ""
 }
 
-# Create necessary directories
-for directory in [TEMP_DIR, JSONS_DIR, TEMPLATE_DIR, CONFIG_DIR]:
+# Create necessary user directories (templates should exist in program directory)
+for directory in [TEMP_DIR, JSONS_DIR, CONFIG_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 def load_user_settings():

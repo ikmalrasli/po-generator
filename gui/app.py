@@ -7,6 +7,7 @@ import sys
 import time
 import threading
 from datetime import datetime
+from PIL import Image, ImageTk
 
 from gui.components import GUIComponents
 from core.pdf_processor import PDFProcessor
@@ -14,111 +15,32 @@ from core.excel_generator import ExcelGenerator
 from core.utils import validate_po_number_format, extract_project_number
 from config.settings import load_user_settings, save_user_settings
 
-class CustomSuccessDialog:
-    def __init__(self, parent, time_text=""):
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Success")
-        self.dialog.geometry("400x150")
-        self.dialog.resizable(False, False)
-        
-        # Center the dialog on parent
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-        
-        # Make dialog modal
-        self.result = None
-        
-        self.create_widgets(time_text)
-        
-        # Center on screen
-        self.dialog.update_idletasks()
-        x = (self.dialog.winfo_screenwidth() // 2) - (400 // 2)
-        y = (self.dialog.winfo_screenheight() // 2) - (150 // 2)
-        self.dialog.geometry(f"400x150+{x}+{y}")
-        
-    def create_widgets(self, time_text):
-        # Main frame with padding
-        main_frame = ttk.Frame(self.dialog, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Icon and message frame
-        message_frame = ttk.Frame(main_frame)
-        message_frame.pack(fill=tk.X, pady=(0, 20))
-        
-        # Information icon (using Unicode symbol)
-        icon_label = ttk.Label(message_frame, text="ℹ", font=("Arial", 16))
-        icon_label.pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Success message
-        message_text = f"Purchase Order generated successfully!"
-        if time_text:
-            message_text += f"\n(Time: {time_text})"
-        
-        message_label = ttk.Label(message_frame, text=message_text, font=("Arial", 10))
-        message_label.pack(side=tk.LEFT)
-        
-        # Button frame
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X)
-        
-        # Style buttons
-        style = ttk.Style()
-        style.configure("Success.TButton", font=("Arial", 9))
-        
-        # Open Folder button
-        ttk.Button(
-            button_frame, 
-            text="Open Folder", 
-            command=self.open_folder,
-            style="Success.TButton",
-            width=12
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        # Save As button
-        ttk.Button(
-            button_frame, 
-            text="Save As...", 
-            command=self.save_as,
-            style="Success.TButton",
-            width=12
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        # OK button
-        ttk.Button(
-            button_frame, 
-            text="OK", 
-            command=self.ok_clicked,
-            style="Success.TButton",
-            width=8
-        ).pack(side=tk.RIGHT)
-        
-    def open_folder(self):
-        """Open the temp folder where the file is saved"""
-        import subprocess
-        import sys
-        
-        temp_dir = "temp"
-        if sys.platform == "win32":
-            subprocess.run(["explorer", temp_dir])
-        elif sys.platform == "darwin":
-            subprocess.run(["open", temp_dir])
-        else:
-            subprocess.run(["xdg-open", temp_dir])
+_icon_photo = None
+ 
+def get_app_icon():
+    """Get the application icon photo, loading it only once"""
+    global _icon_photo
+    if _icon_photo is None:
+        try:
+            # Handle both dev and packaged environments
+            if hasattr(sys, '_MEIPASS'):
+                icon_path = os.path.join(sys._MEIPASS, "PO Generator.ico")
+            else:
+                icon_path = "PO Generator.ico"
             
-    def save_as(self):
-        """Trigger save as action"""
-        self.result = "save_as"
-        self.dialog.destroy()
-        
-    def ok_clicked(self):
-        """Close dialog"""
-        self.result = "ok"
-        self.dialog.destroy()
+            icon_img = Image.open(icon_path)
+            _icon_photo = ImageTk.PhotoImage(icon_img)
+        except Exception:
+            _icon_photo = False
+    return _icon_photo if _icon_photo else None
 
 class POGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Purchase Order Generator")
+        icon_photo = get_app_icon()
+        if icon_photo:
+            self.root.iconphoto(True, icon_photo)
         
         # Load saved settings
         self.user_settings = load_user_settings()
@@ -167,7 +89,18 @@ class POGUI:
         self.director_manager.trace_add('write', self.auto_save_if_enabled)
         self.remember_details.trace_add('write', self.on_remember_details_changed)
         self.google_api_key.trace_add('write', self.auto_save_if_enabled)
+        self.quotation_file.trace_add('write', self.update_generate_button_state)
         
+    def update_generate_button_state(self, *args):
+        """Update generate button state based on PDF attachment and API key"""
+        has_pdf = bool(self.quotation_file.get().strip())
+        has_api_key = bool(self.google_api_key.get().strip())
+        
+        if has_pdf and has_api_key and hasattr(self, 'generate_button'):
+            self.generate_button.config(state="normal")
+        elif hasattr(self, 'generate_button'):
+            self.generate_button.config(state="disabled")
+            
     def auto_save_if_enabled(self, *args):
         """Auto-save current settings if remember_details is checked and not loading"""
         if self.remember_details.get() and not self.is_loading_settings:
@@ -249,13 +182,17 @@ class POGUI:
         
         # API Status in top-right
         api_status_frame = ttk.Frame(header_frame)
-        api_status_frame.grid(row=0, column=1, sticky=tk.E)
+        api_status_frame.grid(row=0, column=1, sticky=tk.E, padx=(20, 0))
         
-        self.api_status_indicator = ttk.Label(api_status_frame, text="●", font=("Arial", 12))
+        # Sub-frame for dot and text alignment
+        status_text_frame = ttk.Frame(api_status_frame)
+        status_text_frame.pack(side=tk.LEFT)
+        
+        self.api_status_indicator = ttk.Label(status_text_frame, text="●", font=("Arial", 12))
         self.api_status_indicator.pack(side=tk.LEFT)
         
-        self.api_status_text = ttk.Label(api_status_frame, text="API Key Missing", font=("Arial", 10))
-        self.api_status_text.pack(side=tk.LEFT, padx=(5, 10))
+        self.api_status_text = ttk.Label(status_text_frame, text="API Key Missing", font=("Arial", 10))
+        self.api_status_text.pack(side=tk.LEFT, padx=(8, 10))
         
         self.api_settings_button = ttk.Button(api_status_frame, text="⚙ Settings", 
                                              command=self.open_api_key_dialog, width=10)
@@ -352,7 +289,8 @@ class POGUI:
             text="Generate Purchase Order", 
             command=self.generate_po,
             style="Primary.TButton",
-            width=25
+            width=25,
+            state="disabled"
         )
         self.generate_button.pack(side=tk.RIGHT, padx=(5, 0))
         
@@ -373,15 +311,17 @@ class POGUI:
         )
         self.save_as_button.pack(side=tk.LEFT, padx=(5, 0))
         
-        # Open File button
+        # Open File button (initially hidden)
         self.open_file_button = ttk.Button(
-            main_frame,
+            button_frame, 
             text="Open File",
             command=self.open_saved_file,
+            style="Secondary.TButton",
+            width=12,
             state="disabled"
         )
-        self.open_file_button.grid(row=4, column=0, pady=5)
-        self.open_file_button.grid_remove()
+        self.open_file_button.pack(side=tk.LEFT, padx=(5, 0))
+        self.open_file_button.pack_forget()  # Initially hidden
         
         # Update API key display after all widgets are created
         self.update_api_key_display()
@@ -442,7 +382,7 @@ class POGUI:
                 else:
                     subprocess.run(["xdg-open", self.saved_filepath])
                 
-                messagebox.showinfo("Success", "Opening file...")
+                # messagebox.showinfo("Success", "Opening file...")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open the file:\n{str(e)}")
         else:
@@ -450,7 +390,12 @@ class POGUI:
             
     def hide_open_file_button(self):
         """Hide the Open File button"""
-        self.open_file_button.grid_remove()
+        self.open_file_button.pack_forget()
+        
+    def show_open_file_button(self):
+        """Show the Open File button"""
+        self.open_file_button.pack(side=tk.LEFT, padx=(5, 0))
+        self.open_file_button.config(state="normal")
         
     def browse_file(self):
         filename = filedialog.askopenfilename(
@@ -537,22 +482,32 @@ class POGUI:
         
         if filepath:
             try:
+                print(f"[DEBUG] Attempting to save file to: {filepath}")
+                print(f"[DEBUG] Source file exists: {os.path.exists(self.excel_generator.temp_filepath)}")
+                print(f"[DEBUG] Source file path: {self.excel_generator.temp_filepath}")
+                
                 import shutil
                 shutil.copy2(self.excel_generator.temp_filepath, filepath)
                 
                 self.saved_filepath = filepath
                 short_path = self._shorten_file_path(filepath)
                 
+                print(f"[DEBUG] File saved successfully to: {filepath}")
+                
                 self.show_open_file_button()
-                self.excel_generator.cleanup_temp_file()
                 self.hide_save_button()
                 
                 # No messagebox here - the custom success dialog already handled notification
                 
             except Exception as e:
+                print(f"[ERROR] Save failed: {str(e)}")
+                print(f"[ERROR] Error type: {type(e).__name__}")
+                import traceback
+                traceback.print_exc()
                 messagebox.showerror("Save Error", f"Could not save file: {str(e)}")
                 self.hide_open_file_button()
         else:
+            print("[DEBUG] Save dialog cancelled by user")
             messagebox.showinfo("Info", "Save cancelled - file ready for download")
             self.hide_open_file_button()
 
@@ -575,6 +530,7 @@ class POGUI:
     def _generate_po_thread(self, gui_data):
         """Run the PO generation in a separate thread"""
         try:
+            # ... (rest of the code remains the same)
             # Process PDF and generate Excel
             filepath = pathlib.Path(gui_data['quotation_file'])
             extracted_data = self.pdf_processor.extract_po_data(filepath, gui_data)
@@ -602,12 +558,15 @@ class POGUI:
     
     def _on_generation_success(self, time_text):
         """Handle successful generation in main thread"""
-        self.generate_button.config(state="normal")
+        self.generate_button.config(state="normal", text="Generate Purchase Order")
         # Reset window title
         self.root.title("Purchase Order Generator")
         
+        # Get the temp file path
+        temp_file_path = self.excel_generator.temp_filepath if self.excel_generator.temp_filepath else ""
+        
         # Show custom success dialog
-        dialog = CustomSuccessDialog(self.root, time_text)
+        dialog = CustomSuccessDialog(self.root, time_text, temp_file_path)
         self.root.wait_window(dialog.dialog)
         
         # Handle dialog result
@@ -622,7 +581,7 @@ class POGUI:
     
     def _on_generation_error(self, error_message):
         """Handle generation error in main thread"""
-        self.generate_button.config(state="normal")
+        self.generate_button.config(state="normal", text="Generate Purchase Order")
         # Reset window title
         self.root.title("Purchase Order Generator")
         messagebox.showerror("Error", f"An error occurred while generating the PO:\n{error_message}")
@@ -633,7 +592,7 @@ class POGUI:
             
         try:
             # Disable generate button to prevent multiple clicks
-            self.generate_button.config(state="disabled")
+            self.generate_button.config(state="disabled", text="Generating...")
             
             # Start timing and set generation state
             self.generation_start_time = time.time()
@@ -666,7 +625,7 @@ class POGUI:
 
         except Exception as e:
             self.is_generating = False
-            self.generate_button.config(state="normal")
+            self.generate_button.config(state="normal", text="Generate Purchase Order")
             # Reset window title
             self.root.title("Purchase Order Generator")
             messagebox.showerror("Error", f"An error occurred while generating the PO:\n{str(e)}")
@@ -687,10 +646,13 @@ class POGUI:
                 self.api_status_text.config(text="API Key Missing", foreground="red")
             if hasattr(self, 'generate_button'):
                 self.generate_button.config(state="disabled")
+        
+        # Also update generate button state based on PDF attachment
+        self.update_generate_button_state()
     
     def open_api_key_dialog(self):
         """Open API key dialog for setting the key"""
-        dialog = APIKeyDialog(self.root)
+        dialog = APIKeyDialog(self.root, self.google_api_key.get())
         self.root.wait_window(dialog.dialog)
         
         if dialog.result:
@@ -700,16 +662,127 @@ class POGUI:
             self.pdf_processor._api_key = dialog.result
             self.pdf_processor._client = None  # Reset client to force re-initialization
             messagebox.showinfo("Success", "API key set successfully")
-
+class CustomSuccessDialog:
+    def __init__(self, parent, time_text="", file_path=""):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Success")
+        icon_photo = get_app_icon()
+        if icon_photo:
+            self.dialog.iconphoto(True, icon_photo)
+        self.dialog.geometry("450x120")
+        self.dialog.resizable(False, False)
+        self.file_path = file_path
+        
+        # Center the dialog on parent
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # Make dialog modal
+        self.result = None
+        
+        self.create_widgets(time_text)
+        
+        # Center on screen
+        self.dialog.update_idletasks()
+        x = (self.dialog.winfo_screenwidth() // 2) - (450 // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (150 // 2)
+        self.dialog.geometry(f"450x120+{x}+{y}")
+        
+    def create_widgets(self, time_text):
+        # Main frame with padding
+        main_frame = ttk.Frame(self.dialog, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Icon and message frame
+        message_frame = ttk.Frame(main_frame)
+        message_frame.pack(fill=tk.X, pady=(0, 20))
+        
+        # Information icon (using Unicode symbol)
+        icon_label = ttk.Label(message_frame, text="ℹ", font=("Arial", 16))
+        icon_label.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Success message
+        message_text = f"Purchase Order generated successfully!"
+        if time_text:
+            message_text += f"\n(Time: {time_text})"
+        
+        message_label = ttk.Label(message_frame, text=message_text, font=("Arial", 10))
+        message_label.pack(side=tk.LEFT)
+        
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+        
+        # Style buttons
+        style = ttk.Style()
+        style.configure("Success.TButton", font=("Arial", 9))
+        
+        # Open File button (only enabled if file_path exists)
+        self.open_file_button = ttk.Button(
+            button_frame, 
+            text="Open File", 
+            command=self.open_file,
+            style="Success.TButton",
+            width=12,
+            state="normal" if self.file_path and os.path.exists(self.file_path) else "disabled"
+        )
+        self.open_file_button.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # OK button
+        ttk.Button(
+            button_frame, 
+            text="OK", 
+            command=self.ok_clicked,
+            style="Success.TButton",
+            width=8
+        ).pack(side=tk.RIGHT)
+        
+    def open_folder(self):
+        """Open the temp folder where the file is saved"""
+        import subprocess
+        import sys
+        
+        temp_dir = "temp"
+        if sys.platform == "win32":
+            subprocess.run(["explorer", temp_dir])
+        elif sys.platform == "darwin":
+            subprocess.run(["open", temp_dir])
+        else:
+            subprocess.run(["xdg-open", temp_dir])
+    
+    def open_file(self):
+        """Open the generated file with the default application"""
+        if self.file_path and os.path.exists(self.file_path):
+            try:
+                if sys.platform == "win32":
+                    os.startfile(self.file_path)
+                elif sys.platform == "darwin":
+                    subprocess.run(["open", self.file_path])
+                else:
+                    subprocess.run(["xdg-open", self.file_path])
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open the file:\n{str(e)}")
+        else:
+            messagebox.showerror("Error", "File not found or has been moved.")
+            
+    def ok_clicked(self):
+        """Close dialog"""
+        self.result = "ok"
+        self.dialog.destroy()
 
 class APIKeyDialog:
-    def __init__(self, parent):
+    def __init__(self, parent, existing_key=""):
         self.result = None
         self.test_result = None
+        self.existing_key = existing_key
+        self.has_existing_key = bool(existing_key)
         
         self.dialog = tk.Toplevel(parent)
+        icon_photo = get_app_icon()
+        if icon_photo:
+            self.dialog.iconphoto(True, icon_photo)
         self.dialog.title("Set Google API Key")
-        self.dialog.geometry("480x240")
+        self.dialog.geometry("400x180")
         self.dialog.resizable(False, False)
         
         # Make dialog modal
@@ -718,9 +791,9 @@ class APIKeyDialog:
         
         # Center the dialog
         self.dialog.update_idletasks()
-        x = (self.dialog.winfo_screenwidth() // 2) - (480 // 2)
-        y = (self.dialog.winfo_screenheight() // 2) - (240 // 2)
-        self.dialog.geometry(f"480x240+{x}+{y}")
+        x = (self.dialog.winfo_screenwidth() // 2) - (520 // 2)
+        y = (self.dialog.winfo_screenheight() // 2) - (280 // 2)
+        self.dialog.geometry(f"400x200+{x}+{y}")
         
         self.create_widgets()
         
@@ -730,8 +803,29 @@ class APIKeyDialog:
         
         ttk.Label(main_frame, text="Enter your Google API Key:", font=("Arial", 10, "bold")).pack(anchor=tk.W, pady=(0, 5))
         
-        self.api_entry = ttk.Entry(main_frame, width=50, show="*")
-        self.api_entry.pack(fill=tk.X, pady=(0, 10))
+        # API Key entry frame with paste button
+        api_frame = ttk.Frame(main_frame)
+        api_frame.pack(fill=tk.X, pady=(0, 10))
+        api_frame.columnconfigure(0, weight=1)
+        
+        # Show masked key if existing, otherwise show entry
+        if self.has_existing_key:
+            self.api_entry = ttk.Entry(api_frame, width=40, show="*")
+            self.api_entry.insert(0, "*" * len(self.existing_key))
+            self.api_entry.config(state="readonly")
+            self.api_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            
+            # Remove Key button
+            self.remove_button = ttk.Button(api_frame, text="Remove Key", command=self.remove_key)
+            self.remove_button.pack(side=tk.RIGHT, padx=(5, 0))
+        else:
+            self.api_entry = ttk.Entry(api_frame, width=40, show="*")
+            self.api_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            
+            # Paste button
+            self.paste_button = ttk.Button(api_frame, text="Paste", command=self.paste_key)
+            self.paste_button.pack(side=tk.RIGHT, padx=(5, 0))
+        
         self.api_entry.focus()
         
         # Link to Google AI Studio
@@ -749,21 +843,56 @@ class APIKeyDialog:
         self.test_result_label = ttk.Label(main_frame, text="", font=("Arial", 9))
         self.test_result_label.pack(fill=tk.X, pady=(5, 10))
         
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
+        # Store reference to button frame
+        self.button_frame = ttk.Frame(main_frame)
+        self.button_frame.pack(fill=tk.X, pady=(10, 0))
         
-        # Test Connection button
-        self.test_button = ttk.Button(button_frame, text="Test Connection", command=self.test_connection)
-        self.test_button.pack(side=tk.LEFT)
+        # Test Connection button (only show if key is not readonly)
+        if not self.has_existing_key:
+            self.test_button = ttk.Button(self.button_frame, text="Test Connection", command=self.test_connection)
+            self.test_button.pack(side=tk.LEFT)
         
         # OK and Cancel buttons
-        ttk.Button(button_frame, text="OK", command=self.on_ok).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(button_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT)
+        ttk.Button(self.button_frame, text="OK", command=self.on_ok).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(self.button_frame, text="Cancel", command=self.on_cancel).pack(side=tk.RIGHT)
         
         # Bind Enter key to OK
         self.dialog.bind('<Return>', lambda e: self.on_ok())
         self.dialog.bind('<Escape>', lambda e: self.on_cancel())
+    
+    def paste_key(self):
+        """Paste API key from clipboard"""
+        try:
+            import tkinter as tk
+            clipboard_content = self.dialog.clipboard_get()
+            if clipboard_content:
+                self.api_entry.config(state="normal")
+                self.api_entry.delete(0, tk.END)
+                self.api_entry.insert(0, clipboard_content.strip())
+                self.api_entry.config(state="normal")
+        except tk.TclError:
+            # Clipboard is empty or not available
+            pass
+    
+    def remove_key(self):
+        """Remove the existing API key"""
+        self.api_entry.config(state="normal")
+        self.api_entry.delete(0, tk.END)
+        self.api_entry.config(state="normal")
+        self.has_existing_key = False
         
+        # Update UI to show paste button instead of remove button
+        if hasattr(self, 'remove_button'):
+            self.remove_button.destroy()
+            
+        self.paste_button = ttk.Button(self.api_entry.master, text="Paste", command=self.paste_key)
+        self.paste_button.pack(side=tk.RIGHT, padx=(5, 0))
+        
+        # Add test button using the stored button frame reference
+        if hasattr(self, 'button_frame'):
+            self.test_button = ttk.Button(self.button_frame, text="Test Connection", command=self.test_connection)
+            self.test_button.pack(side=tk.LEFT)
+    
     def test_connection(self):
         """Test the API key connection"""
         api_key = self.api_entry.get().strip()
@@ -805,6 +934,12 @@ class APIKeyDialog:
         api_key = self.api_entry.get().strip()
         if not api_key:
             messagebox.showerror("Error", "API key cannot be empty")
+            return
+        
+        # If we have an existing key and it's readonly, we're just confirming
+        if self.has_existing_key and api_key == "*" * len(self.existing_key):
+            self.result = self.existing_key
+            self.dialog.destroy()
             return
         
         # If we haven't tested or test failed, ask user to confirm
