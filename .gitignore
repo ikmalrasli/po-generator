@@ -3,7 +3,8 @@
 /jsons
 /dist
 /temp
-/data/templates/po_template.xlsx
-/config/user_settings.json
+templates/po_template.xlsx
 __pycache__
 config/user_settings.json
+PO-Generator.spec
+PO Generator-Setup-1.0.0.exe
